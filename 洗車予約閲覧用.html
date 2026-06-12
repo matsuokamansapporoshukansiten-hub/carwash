@@ -168,6 +168,18 @@ async function fetchFromGAS() {
   }
 }
 
+
+// XSS対策: HTML特殊文字をエスケープする関数
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function getReservations() {
   try {
     const data = localStorage.getItem('carwash_reservations');
@@ -239,8 +251,8 @@ function render() {
     nowCard.className = 'now-card washing';
     nowLabel.textContent = '🚿 洗車中';
     nowBig.textContent = `${currentSlot}〜${addMinutes(currentSlot,15)}`;
-    nowSub.textContent = `${r.name}さん（${r.dept}）`;
-    nowMeta.innerHTML = `<span class="badge badge-dept">${r.dept}</span><span class="badge badge-type">${r.type}</span><span class="badge badge-plate">${r.plate}</span>${r.trailerPlate?`<span class="badge badge-plate">${r.trailerPlate}</span>`:''}`;
+    nowSub.textContent = `${esc(r.name)}さん（${esc(r.dept)}）`;
+    nowMeta.innerHTML = `<span class="badge badge-dept">${esc(r.dept)}</span><span class="badge badge-type">${esc(r.type)}</span><span class="badge badge-plate">${esc(r.plate)}</span>${r.trailerPlate?`<span class="badge badge-plate">${esc(r.trailerPlate)}</span>`:''}`;
     const startMins = slotToMinutes(currentSlot);
     const elapsedMins = nowMins - startMins;
     elapsed.style.display = 'block';
@@ -267,8 +279,8 @@ function render() {
     const r = dayRes[nextSlot];
     nextCard.style.display = 'block';
     document.getElementById('next-big').textContent = `${nextSlot}〜${addMinutes(nextSlot,15)}`;
-    document.getElementById('next-sub').textContent = `${r.name}さん（${r.dept}）`;
-    document.getElementById('next-meta').innerHTML = `<span class="badge badge-dept">${r.dept}</span><span class="badge badge-type">${r.type}</span><span class="badge badge-plate">${r.plate}</span>`;
+    document.getElementById('next-sub').textContent = `${esc(r.name)}さん（${esc(r.dept)}）`;
+    document.getElementById('next-meta').innerHTML = `<span class="badge badge-dept">${esc(r.dept)}</span><span class="badge badge-type">${esc(r.type)}</span><span class="badge badge-plate">${esc(r.plate)}</span>`;
     const mins = slotToMinutes(nextSlot) - nowMins;
     document.getElementById('countdown').textContent = formatMins(mins);
   } else {
@@ -295,11 +307,11 @@ function render() {
     return `<div class="${cls}">
       <div class="res-time">${slot}</div>
       <div class="res-info">
-        <div class="res-name">${r.name}　<span style="font-size:11px;color:#888;">${r.dept}</span></div>
+        <div class="res-name">${esc(r.name)}　<span style="font-size:11px;color:#888;">${esc(r.dept)}</span></div>
         <div class="res-badges">
-          <span class="badge badge-type" style="font-size:10px">${r.type}</span>
-          <span class="badge badge-plate" style="font-size:10px">${r.plate}</span>
-          ${r.trailerPlate?`<span class="badge badge-plate" style="font-size:10px">${r.trailerPlate}</span>`:''}
+          <span class="badge badge-type" style="font-size:10px">${esc(r.type)}</span>
+          <span class="badge badge-plate" style="font-size:10px">${esc(r.plate)}</span>
+          ${r.trailerPlate?`<span class="badge badge-plate" style="font-size:10px">${esc(r.trailerPlate)}</span>`:''}
         </div>
       </div>
       ${statusHtml}

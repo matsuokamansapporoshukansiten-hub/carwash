@@ -424,18 +424,18 @@ function renderWashScreen(){
   const queue=getTodayQueue();
   const card=document.getElementById('now-card'),label=document.getElementById('now-label'),big=document.getElementById('now-big'),sub=document.getElementById('now-sub'),meta=document.getElementById('now-meta'),timerEl=document.getElementById('wash-timer'),btns=document.getElementById('action-btns');
   if(washState==='washing'&&washCurrent){
-    card.className='now-card washing';label.textContent='🚿 洗車中';big.textContent=`${washCurrent.slot}〜${addMinutes(washCurrent.slot,15)}`;sub.textContent=`${washCurrent.name}さん（${washCurrent.dept}）`;
-    meta.innerHTML=`<span class="badge badge-dept">${washCurrent.dept}</span><span class="badge badge-type">${washCurrent.type}</span><span class="badge badge-plate">${washCurrent.plate}</span>${washCurrent.trailerPlate?`<span class="badge badge-plate">${washCurrent.trailerPlate}</span>`:''}`;
+    card.className='now-card washing';label.textContent='🚿 洗車中';big.textContent=`${washCurrent.slot}〜${addMinutes(washCurrent.slot,15)}`;sub.textContent=`${esc(washCurrent.name)}さん（${esc(washCurrent.dept)}）`;
+    meta.innerHTML=`<span class="badge badge-dept">${esc(washCurrent.dept)}</span><span class="badge badge-type">${esc(washCurrent.type)}</span><span class="badge badge-plate">${esc(washCurrent.plate)}</span>${washCurrent.trailerPlate?`<span class="badge badge-plate">${esc(washCurrent.trailerPlate)}</span>`:''}`;
     timerEl.style.display='block';btns.innerHTML=`<button class="btn-done-wash" onclick="finishWash()">✓ 洗車完了</button>`;
   } else {
     const dk=localDateKey(new Date());const nowSlot=getCurrentSlot();const nowRes=nowSlot&&reservations[dk]&&reservations[dk][nowSlot];
     if(nowRes){
-      card.className='now-card washing';label.textContent='⏳ 現在枠に予約あり';big.textContent=`${nowSlot}〜${addMinutes(nowSlot,15)}`;sub.textContent=`${nowRes.name}さん（${nowRes.dept}）`;
-      meta.innerHTML=`<span class="badge badge-dept">${nowRes.dept}</span><span class="badge badge-type">${nowRes.type}</span><span class="badge badge-plate">${nowRes.plate}</span>${nowRes.trailerPlate?`<span class="badge badge-plate">${nowRes.trailerPlate}</span>`:''}`;
+      card.className='now-card washing';label.textContent='⏳ 現在枠に予約あり';big.textContent=`${nowSlot}〜${addMinutes(nowSlot,15)}`;sub.textContent=`${esc(nowRes.name)}さん（${esc(nowRes.dept)}）`;
+      meta.innerHTML=`<span class="badge badge-dept">${esc(nowRes.dept)}</span><span class="badge badge-type">${esc(nowRes.type)}</span><span class="badge badge-plate">${esc(nowRes.plate)}</span>${nowRes.trailerPlate?`<span class="badge badge-plate">${esc(nowRes.trailerPlate)}</span>`:''}`;
       timerEl.style.display='none';btns.innerHTML=`<button class="btn-start" onclick="startWash('${nowSlot}')">▶ 洗車開始</button><button class="btn-skip" onclick="skipWash('${nowSlot}')">スキップ</button>`;
     } else if(queue.length>0){
-      const next=queue[0];const mins=minsUntil(next.slot);card.className='now-card idle';label.textContent='⏰ 次の予約まで待機中';big.textContent=`${next.slot}〜${addMinutes(next.slot,15)}`;sub.textContent=`${next.name}さん（${next.dept}）`;
-      meta.innerHTML=`<span class="badge badge-dept">${next.dept}</span><span class="badge badge-type">${next.type}</span><span class="badge badge-plate">${next.plate}</span>`;
+      const next=queue[0];const mins=minsUntil(next.slot);card.className='now-card idle';label.textContent='⏰ 次の予約まで待機中';big.textContent=`${next.slot}〜${addMinutes(next.slot,15)}`;sub.textContent=`${esc(next.name)}さん（${esc(next.dept)}）`;
+      meta.innerHTML=`<span class="badge badge-dept">${esc(next.dept)}</span><span class="badge badge-type">${esc(next.type)}</span><span class="badge badge-plate">${esc(next.plate)}</span>`;
       timerEl.style.display='block';timerEl.textContent=formatMins(mins);btns.innerHTML=`<button class="btn-start" onclick="startWash('${next.slot}')">▶ 今すぐ開始</button>`;
     } else {
       card.className='now-card idle';label.textContent='待機中';big.textContent='本日の予約なし';sub.textContent='新しい予約が入ると表示されます';meta.innerHTML='';timerEl.style.display='none';btns.innerHTML='';
@@ -444,7 +444,7 @@ function renderWashScreen(){
   const queueList=document.getElementById('queue-list');const displayQueue=washState==='washing'?queue:queue.slice(1);
   if(!displayQueue.length){queueList.innerHTML='<div class="empty-queue">以降の予約はありません</div>';return;}
   queueList.innerHTML=displayQueue.map((item,i)=>{const mins=minsUntil(item.slot);const isNext=i===0;
-    return `<div class="queue-item${isNext?' next':''}"><div class="queue-num">${isNext?'次':`${i+2}`}</div><div class="queue-time">${item.slot}</div><div class="queue-info"><div class="queue-name">${item.name}（${item.dept}）</div><div class="queue-badges"><span class="badge badge-type" style="font-size:10px">${item.type}</span><span class="badge badge-plate" style="font-size:10px">${item.plate}</span></div></div><div class="queue-mins">${mins>0?`あと${mins}分`:mins===0?'まもなく':'時間超過'}</div></div>`;
+    return `<div class="queue-item${isNext?' next':''}"><div class="queue-num">${isNext?'次':`${i+2}`}</div><div class="queue-time">${item.slot}</div><div class="queue-info"><div class="queue-name">${esc(item.name)}（${esc(item.dept)}）</div><div class="queue-badges"><span class="badge badge-type" style="font-size:10px">${esc(item.type)}</span><span class="badge badge-plate" style="font-size:10px">${esc(item.plate)}</span></div></div><div class="queue-mins">${mins>0?`あと${mins}分`:mins===0?'まもなく':'時間超過'}</div></div>`;
   }).join('');
 }
 
@@ -480,7 +480,7 @@ function renderSlots(){
   slots.forEach(slot=>{
     const div=document.createElement('div');div.className='slot';const res=dayRes[slot],bookable=isSlotBookable(slot),maint=isSlotMaintenance(slot);
     if(maint&&!res){div.classList.add('maint');div.innerHTML=`<div class="slot-time">${slot}</div><div class="slot-sub">メンテ</div>`;mc++;}
-    else if(res){div.classList.add('booked');div.innerHTML=`<div class="slot-time">${slot}</div><div class="slot-sub">${res.dept}</div><div class="slot-sub">${res.type}</div>`;div.onclick=()=>showDetailModal(slot,res,dk);bc++;}
+    else if(res){div.classList.add('booked');div.innerHTML=`<div class="slot-time">${slot}</div><div class="slot-sub">${esc(res.dept)}</div><div class="slot-sub">${esc(res.type)}</div>`;div.onclick=()=>showDetailModal(slot,res,dk);bc++;}
     else if(!bookable){div.classList.add('disabled');div.innerHTML=`<div class="slot-time">${slot}</div>`;}
     else{if(selectedSlot===slot)div.classList.add('selected');div.innerHTML=`<div class="slot-time">${slot}</div><div class="slot-sub" style="color:#b0c8b0">空き</div>`;div.onclick=()=>selectSlot(slot);}
     grid.appendChild(div);
@@ -512,10 +512,10 @@ function showDetailModal(slot,res,dk){
     <h2>予約詳細</h2>
     <table style="width:100%;font-size:13px;border-collapse:collapse">
       <tr><td style="color:#888;padding:4px 0;width:110px">日時</td><td style="padding:4px 0"><strong>${dk} ${slot}〜${addMinutes(slot,15)}</strong></td></tr>
-      <tr><td style="color:#888;padding:4px 0">氏名</td><td style="padding:4px 0">${res.name}</td></tr>
-      <tr><td style="color:#888;padding:4px 0">部署</td><td style="padding:4px 0"><span class="badge badge-dept">${res.dept}</span></td></tr>
-      <tr><td style="color:#888;padding:4px 0">車種</td><td style="padding:4px 0"><span class="badge badge-type">${res.type}</span></td></tr>
-      <tr><td style="color:#888;padding:4px 0">車両番号</td><td style="padding:4px 0">${res.plate}</td></tr>
+      <tr><td style="color:#888;padding:4px 0">氏名</td><td style="padding:4px 0">${esc(res.name)}</td></tr>
+      <tr><td style="color:#888;padding:4px 0">部署</td><td style="padding:4px 0"><span class="badge badge-dept">${esc(res.dept)}</span></td></tr>
+      <tr><td style="color:#888;padding:4px 0">車種</td><td style="padding:4px 0"><span class="badge badge-type">${esc(res.type)}</span></td></tr>
+      <tr><td style="color:#888;padding:4px 0">車両番号</td><td style="padding:4px 0">${esc(res.plate)}</td></tr>
       ${tr}
     </table>
     <div class="modal-btns">
@@ -548,7 +548,7 @@ function renderHistory(){
   const tbody=document.getElementById('history-tbody');const empty=document.getElementById('history-empty');
   if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  tbody.innerHTML=filtered.map(h=>`<tr><td style="font-size:11px">${h.date}<br>${h.slot}〜${addMinutes(h.slot,15)}</td><td>${h.name}</td><td><span class="badge badge-dept">${h.dept}</span></td><td><span class="badge badge-type">${h.type}</span></td><td style="font-size:11px">${h.plate}</td><td style="font-size:11px">${h.trailerPlate||'—'}</td></tr>`).join('');
+  tbody.innerHTML=filtered.map(h=>`<tr><td style="font-size:11px">${h.date}<br>${h.slot}〜${addMinutes(h.slot,15)}</td><td>${esc(h.name)}</td><td><span class="badge badge-dept">${esc(h.dept)}</span></td><td><span class="badge badge-type">${esc(h.type)}</span></td><td style="font-size:11px">${esc(h.plate)}</td><td style="font-size:11px">${h.trailerPlate||'—'}</td></tr>`).join('');
   renderHistorySummary();
 }
 function clearFilters(){['filter-dept','filter-type'].forEach(id=>document.getElementById(id).value='');['filter-from','filter-to'].forEach(id=>document.getElementById(id).value='');renderHistory();}
@@ -592,6 +592,17 @@ function gasGet(action) {
 }
 
 // 予約保存
+// XSS対策: HTML特殊文字をエスケープする関数
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function saveToStorage() {
   try { localStorage.setItem('carwash_reservations', JSON.stringify(reservations)); } catch(e) {}
 }
@@ -714,11 +725,11 @@ function showTodayList(){
         <div style="display:flex;align-items:center;margin-bottom:6px;">
           <span style="font-size:14px;font-weight:700;color:${timeColor}">${slot}〜${addMinutes(slot,15)}</span>${statusBadge}
         </div>
-        <div style="font-size:13px;color:#333;margin-bottom:4px;">${r.name}　<span style="font-size:11px;background:#E6F1FB;color:#0C447C;padding:2px 7px;border-radius:99px;font-weight:600;">${r.dept}</span></div>
+        <div style="font-size:13px;color:#333;margin-bottom:4px;">${esc(r.name)}　<span style="font-size:11px;background:#E6F1FB;color:#0C447C;padding:2px 7px;border-radius:99px;font-weight:600;">${esc(r.dept)}</span></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <span style="font-size:11px;background:#E1F5EE;color:#085041;padding:2px 7px;border-radius:99px;font-weight:600;">${r.type}</span>
-          <span style="font-size:11px;background:#f0f0f0;color:#333;padding:2px 7px;border-radius:99px;border:1px solid #ddd;">${r.plate}</span>
-          ${r.trailerPlate?`<span style="font-size:11px;background:#f0f0f0;color:#333;padding:2px 7px;border-radius:99px;border:1px solid #ddd;">${r.trailerPlate}</span>`:''}
+          <span style="font-size:11px;background:#E1F5EE;color:#085041;padding:2px 7px;border-radius:99px;font-weight:600;">${esc(r.type)}</span>
+          <span style="font-size:11px;background:#f0f0f0;color:#333;padding:2px 7px;border-radius:99px;border:1px solid #ddd;">${esc(r.plate)}</span>
+          ${r.trailerPlate?`<span style="font-size:11px;background:#f0f0f0;color:#333;padding:2px 7px;border-radius:99px;border:1px solid #ddd;">${esc(r.trailerPlate)}</span>`:''}
         </div>
       </div>`;
     }).join('');
