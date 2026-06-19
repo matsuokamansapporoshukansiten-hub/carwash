@@ -168,6 +168,17 @@ async function fetchFromGAS() {
   }
 }
 
+// 現在実際に洗車中の枠（担当者が開始ボタンを押した枠）を取得
+async function fetchWashingStatus() {
+  try {
+    const res = await fetch(GAS_URL + '?action=getWashingStatus');
+    const json = await res.json();
+    return json.data || null;
+  } catch(e) {
+    return null;
+  }
+}
+
 
 // XSS対策: HTML特殊文字をエスケープする関数
 function esc(str) {
@@ -228,9 +239,14 @@ function render() {
 
   // 本日の全予約スロット
   const allBooked = slots.filter(s => dayRes[s]).sort((a,b)=>slotToMinutes(a)-slotToMinutes(b));
-  const pastBooked = allBooked.filter(s => slotToMinutes(s)+SLOT_MIN <= nowMins);
-  const currentSlot = allBooked.find(s => slotToMinutes(s)<=nowMins && nowMins<slotToMinutes(s)+SLOT_MIN);
-  const upcomingBooked = allBooked.filter(s => slotToMinutes(s) > nowMins);
+
+  // 実際に担当者が「開始」を押している枠（進行中ステータス）を優先的に「洗車中」とする
+  let currentSlot = null;
+  if (currentWashingStatus && currentWashingStatus.date === dk && currentWashingStatus.slot && dayRes[currentWashingStatus.slot]) {
+    currentSlot = currentWashingStatus.slot;
+  }
+  const pastBooked = allBooked.filter(s => s !== currentSlot && slotToMinutes(s)+SLOT_MIN <= nowMins);
+  const upcomingBooked = allBooked.filter(s => s !== currentSlot && slotToMinutes(s) > nowMins);
   const nextSlot = upcomingBooked[0] || null;
 
   // 統計
@@ -253,8 +269,13 @@ function render() {
     nowBig.textContent = `${currentSlot}〜${addMinutes(currentSlot,15)}`;
     nowSub.textContent = `${esc(r.name)}さん（${esc(r.dept)}）`;
     nowMeta.innerHTML = `<span class="badge badge-dept">${esc(r.dept)}</span><span class="badge badge-type">${esc(r.type)}</span><span class="badge badge-plate">${esc(r.plate)}</span>${r.trailerPlate?`<span class="badge badge-plate">${esc(r.trailerPlate)}</span>`:''}`;
-    const startMins = slotToMinutes(currentSlot);
-    const elapsedMins = nowMins - startMins;
+    let elapsedMins;
+    if (currentWashingStatus && currentWashingStatus.startedAt) {
+      const startedDate = new Date(currentWashingStatus.startedAt);
+      elapsedMins = Math.floor((now - startedDate) / 60000);
+    } else {
+      elapsedMins = nowMins - slotToMinutes(currentSlot);
+    }
     elapsed.style.display = 'block';
     elapsed.textContent = `経過 ${elapsedMins}分`;
   } else if (upcomingBooked.length > 0 || pastBooked.length > 0) {
@@ -326,18 +347,21 @@ function updateClock() {
     `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
 }
 
+let currentWashingStatus = null;
+
 async function renderFromGAS() {
   const data = await fetchFromGAS();
   if (data) {
     try { localStorage.setItem('carwash_reservations', JSON.stringify(data)); } catch(e) {}
   }
+  currentWashingStatus = await fetchWashingStatus();
   render();
 }
 
 renderFromGAS();
 updateClock();
 setInterval(updateClock, 1000);
-setInterval(renderFromGAS, 30000); // 30秒ごとにGASから再取得
+setInterval(renderFromGAS, 15000); // 15秒ごとにGASから再取得
 </script>
 </body>
 </html>
