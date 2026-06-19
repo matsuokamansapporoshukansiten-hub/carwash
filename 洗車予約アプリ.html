@@ -547,9 +547,15 @@ function markDoneFromModal(){
   const completedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const histEntry={...res,date:dk,slot,completedAt};
   washHistory.unshift(histEntry);
-  delete reservations[dk][slot];saveToStorage();closeModal();renderSlots();renderHistorySummary();renderWashScreen();
+  delete reservations[dk][slot];saveToStorage();closeModal();renderSlots();renderHistorySummary();
   gasPost({action:'deleteReservation',date:dk,slot:slot});
   gasPost({action:'saveHistory',...histEntry});
+  gasPost({action:'clearWashingStatus',date:dk,slot:slot});
+  // 自分が今まさに洗車中だったのがこの予約なら、担当者画面の状態もリセット
+  if(washCurrent && washCurrent.slot===slot){
+    clearInterval(washTimerInterval);washState='idle';washCurrent=null;washStartTime=null;
+  }
+  renderWashScreen();
 }
 
 function renderHistorySummary(){
@@ -843,7 +849,7 @@ try {
 
 initMaintSlots();updateDateUI();renderSlots();renderMaintList();updateClock();loadFromGAS();
 setInterval(updateClock,1000);
-setInterval(()=>{if(!document.getElementById('wash-tab').classList.contains('section-hidden'))renderWashScreen();},60000);
+setInterval(()=>{if(!document.getElementById('wash-tab').classList.contains('section-hidden'))loadFromGAS();},15000);
 </script>
 
 <!-- 今日の予約一覧モーダル -->
