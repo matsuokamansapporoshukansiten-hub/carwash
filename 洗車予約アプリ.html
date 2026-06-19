@@ -382,6 +382,13 @@ body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#f0f4f0;color:#1
         </div>
         <div class="maint-list" id="maint-list"></div>
       </div>
+
+      <!-- 未完了予約まとめ処理 -->
+      <div class="section">
+        <h2>⚠️ 完了されていない過去の予約</h2>
+        <p style="font-size:13px;color:#5a8a62;margin-bottom:12px">時間が過ぎても「完了」されていない予約です。1件ずつキャンセルまたは完了の処理をしてください。</p>
+        <div id="overdue-list"></div>
+      </div>
     </div>
 
     <div id="modal-area"></div>
@@ -450,23 +457,28 @@ function renderWashScreen(){
 
 function startWash(slot){
   const dk=localDateKey(new Date());const res=reservations[dk]&&reservations[dk][slot];if(!res)return;
-  washState='washing';washCurrent={...res,slot};washStartTime=new Date();
+  const startedAt=new Date().toISOString();
+  washState='washing';washCurrent={...res,slot};washStartTime=new Date(startedAt);
   washTimerInterval=setInterval(()=>{const e=Math.floor((new Date()-washStartTime)/1000);document.getElementById('wash-timer').textContent=`経過 ${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;},1000);
   renderWashScreen();
+  // 他端末にも「洗車中」状態を共有
+  gasPost({action:'setWashingStatus',date:dk,slot:slot,startedAt:startedAt});
 }
 function finishWash(){
   if(!washCurrent)return;const dk=localDateKey(new Date());const now=new Date();
+  const finishedSlot=washCurrent.slot;
   washHistory.unshift({...washCurrent,date:dk,completedAt:`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`});
   if(reservations[dk]){
-    gasPost({action:'deleteReservation',date:dk,slot:washCurrent.slot});
-    delete reservations[dk][washCurrent.slot];
+    gasPost({action:'deleteReservation',date:dk,slot:finishedSlot});
+    delete reservations[dk][finishedSlot];
     saveToStorage();
   }
   if(washHistory[0]) gasPost({action:'saveHistory',...washHistory[0]});
+  gasPost({action:'clearWashingStatus',date:dk,slot:finishedSlot});
   clearInterval(washTimerInterval);washState='idle';washCurrent=null;washStartTime=null;
   renderWashScreen();renderSlots();renderHistorySummary();
 }
-function skipWash(slot){const dk=localDateKey(new Date());if(reservations[dk]&&reservations[dk][slot]){delete reservations[dk][slot];saveToStorage();gasPost({action:'deleteReservation',date:dk,slot:slot});}renderWashScreen();renderSlots();}
+function skipWash(slot){const dk=localDateKey(new Date());if(reservations[dk]&&reservations[dk][slot]){delete reservations[dk][slot];saveToStorage();gasPost({action:'deleteReservation',date:dk,slot:slot});gasPost({action:'clearWashingStatus',date:dk,slot:slot});}renderWashScreen();renderSlots();}
 
 function isSlotBookable(slot){
   const today=getTodayMidnight();const isToday=currentDate.getTime()===today.getTime();const isTomorrow=currentDate.getTime()===today.getTime()+86400000;const now=new Date();const[h,mi]=slot.split(':').map(Number);
@@ -624,7 +636,6 @@ async function loadFromGAS() {
     reservations = data;
     saveToStorage();
     renderSlots();
-    renderWashScreen();
   }
   const mdata = await gasGet('getMaintenances');
   if (mdata) {
@@ -637,6 +648,26 @@ async function loadFromGAS() {
     washHistory = hdata.reverse();
     renderHistorySummary();
   }
+  // 他端末の「洗車中」状態を反映
+  const wdata = await gasGet('getWashingStatus');
+  const dk = localDateKey(new Date());
+  if (wdata && wdata.date === dk && wdata.slot && reservations[dk] && reservations[dk][wdata.slot]) {
+    washState = 'washing';
+    washCurrent = {...reservations[dk][wdata.slot], slot: wdata.slot};
+    washStartTime = new Date(wdata.startedAt);
+    if (washTimerInterval) clearInterval(washTimerInterval);
+    washTimerInterval = setInterval(() => {
+      const e = Math.floor((new Date() - washStartTime) / 1000);
+      const elEl = document.getElementById('wash-timer');
+      if (elEl) elEl.textContent = `経過 ${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
+    }, 1000);
+  } else if (wdata === null || !wdata || !wdata.slot) {
+    // GAS側で洗車中状態がクリアされていたら自分の状態もidleに戻す（自分が開始した端末以外向け）
+    if (washState === 'washing' && washCurrent) {
+      // 自分がたった今開始したばかりの場合は維持（誤クリア防止のため何もしない）
+    }
+  }
+  renderWashScreen();
   showLoadingOverlay(false);
 }
 
@@ -685,6 +716,67 @@ function switchTab(tab){
   ['wash','user','history','admin'].forEach(t=>document.getElementById(t+'-tab').classList.toggle('section-hidden',t!==tab));
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['wash','user','history','admin'][i]===tab));
   if(tab==='wash')renderWashScreen();if(tab==='history'){renderHistory();renderHistorySummary();}
+  if(tab==='admin')renderOverdueList();
+}
+
+// ── 未完了予約（時間が過ぎても完了されていない予約）の検出と処理 ──
+function getOverdueReservations(){
+  const now=new Date();
+  const overdue=[];
+  Object.keys(reservations).forEach(date=>{
+    const dayRes=reservations[date]||{};
+    Object.keys(dayRes).forEach(slot=>{
+      const slotDateTime=new Date(`${date}T${slot}:00`);
+      const slotEndTime=new Date(slotDateTime.getTime()+SLOT_MIN*60000);
+      if(slotEndTime<now){
+        overdue.push({date,slot,...dayRes[slot]});
+      }
+    });
+  });
+  overdue.sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return slotToMinutes(a.slot)-slotToMinutes(b.slot);
+  });
+  return overdue;
+}
+
+function renderOverdueList(){
+  const list=document.getElementById('overdue-list');
+  if(!list) return;
+  const overdue=getOverdueReservations();
+  if(!overdue.length){
+    list.innerHTML='<p style="font-size:13px;color:#aaa;padding:8px 0">未完了の予約はありません</p>';
+    return;
+  }
+  list.innerHTML=overdue.map(item=>{
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #F0997B;background:#FAECE7;border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:13px;font-weight:700;color:#712B13;">${esc(item.date)} ${esc(item.slot)}〜${esc(addMinutes(item.slot,15))}</div>
+        <div style="font-size:12px;color:#712B13;margin-top:2px;">${esc(item.name)}（${esc(item.dept)}）　${esc(item.type)}　${esc(item.plate)}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="resolveOverdue('${item.date}','${item.slot}','cancel')" style="padding:7px 14px;background:#E24B4A;border:none;border-radius:8px;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">キャンセル</button>
+        <button onclick="resolveOverdue('${item.date}','${item.slot}','done')" style="padding:7px 14px;background:#1a5c2a;border:none;border-radius:8px;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">完了</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function resolveOverdue(date,slot,action){
+  const res=reservations[date]&&reservations[date][slot];
+  if(!res) return;
+  if(action==='done'){
+    const completedAt='(未記録)';
+    washHistory.unshift({...res,date,slot,completedAt});
+    gasPost({action:'saveHistory',...washHistory[0]});
+  }
+  delete reservations[date][slot];
+  saveToStorage();
+  gasPost({action:'deleteReservation',date:date,slot:slot});
+  gasPost({action:'clearWashingStatus',date:date,slot:slot});
+  renderOverdueList();
+  renderSlots();
+  renderHistorySummary();
 }
 function changeDate(delta){
   const today=getTodayMidnight();const next=new Date(currentDate.getTime()+delta*86400000);const maxDate=new Date(today.getTime()+86400000);
