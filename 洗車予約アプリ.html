@@ -466,7 +466,7 @@ function finishWash(){
   clearInterval(washTimerInterval);washState='idle';washCurrent=null;washStartTime=null;
   renderWashScreen();renderSlots();renderHistorySummary();
 }
-function skipWash(slot){const dk=localDateKey(new Date());if(reservations[dk]&&reservations[dk][slot])delete reservations[dk][slot];saveToStorage();renderWashScreen();renderSlots();}
+function skipWash(slot){const dk=localDateKey(new Date());if(reservations[dk]&&reservations[dk][slot]){delete reservations[dk][slot];saveToStorage();gasPost({action:'deleteReservation',date:dk,slot:slot});}renderWashScreen();renderSlots();}
 
 function isSlotBookable(slot){
   const today=getTodayMidnight();const isToday=currentDate.getTime()===today.getTime();const isTomorrow=currentDate.getTime()===today.getTime()+86400000;const now=new Date();const[h,mi]=slot.split(':').map(Number);
@@ -532,8 +532,12 @@ function cancelReservation(){if(!cancelTarget)return;const _ct=cancelTarget;
 }
 function markDoneFromModal(){
   if(!cancelTarget)return;const{slot,res,dk}=cancelTarget;const now=new Date();
-  washHistory.unshift({...res,date:dk,slot,completedAt:`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`});
-  delete reservations[dk][slot];closeModal();renderSlots();renderHistorySummary();renderWashScreen();
+  const completedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const histEntry={...res,date:dk,slot,completedAt};
+  washHistory.unshift(histEntry);
+  delete reservations[dk][slot];saveToStorage();closeModal();renderSlots();renderHistorySummary();renderWashScreen();
+  gasPost({action:'deleteReservation',date:dk,slot:slot});
+  gasPost({action:'saveHistory',...histEntry});
 }
 
 function renderHistorySummary(){
