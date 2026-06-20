@@ -658,6 +658,7 @@ async function loadFromGAS() {
   const wdata = await gasGet('getWashingStatus');
   const dk = localDateKey(new Date());
   if (wdata && wdata.date === dk && wdata.slot && reservations[dk] && reservations[dk][wdata.slot]) {
+    // GAS側が「洗車中」を示している → 自分の画面も洗車中にする
     washState = 'washing';
     washCurrent = {...reservations[dk][wdata.slot], slot: wdata.slot};
     washStartTime = new Date(wdata.startedAt);
@@ -667,10 +668,13 @@ async function loadFromGAS() {
       const elEl = document.getElementById('wash-timer');
       if (elEl) elEl.textContent = `経過 ${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
     }, 1000);
-  } else if (wdata === null || !wdata || !wdata.slot) {
-    // GAS側で洗車中状態がクリアされていたら自分の状態もidleに戻す（自分が開始した端末以外向け）
-    if (washState === 'washing' && washCurrent) {
-      // 自分がたった今開始したばかりの場合は維持（誤クリア防止のため何もしない）
+  } else {
+    // GAS側が「洗車中なし」を示している → 自分の画面もidleに戻す（他端末が完了させた場合に対応）
+    if (washState === 'washing') {
+      clearInterval(washTimerInterval);
+      washState = 'idle';
+      washCurrent = null;
+      washStartTime = null;
     }
   }
   renderWashScreen();
@@ -849,7 +853,7 @@ try {
 
 initMaintSlots();updateDateUI();renderSlots();renderMaintList();updateClock();loadFromGAS();
 setInterval(updateClock,1000);
-setInterval(()=>{if(!document.getElementById('wash-tab').classList.contains('section-hidden'))loadFromGAS();},15000);
+setInterval(()=>{if(!document.getElementById('wash-tab').classList.contains('section-hidden'))loadFromGAS();},90000);
 </script>
 
 <!-- 今日の予約一覧モーダル -->
