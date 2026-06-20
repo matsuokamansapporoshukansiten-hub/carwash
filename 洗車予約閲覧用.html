@@ -179,6 +179,17 @@ async function fetchWashingStatus() {
   }
 }
 
+// 洗車履歴を取得（本日の完了件数を出すため）
+async function fetchHistory() {
+  try {
+    const res = await fetch(GAS_URL + '?action=getHistory');
+    const json = await res.json();
+    return Array.isArray(json.data) ? json.data : [];
+  } catch(e) {
+    return [];
+  }
+}
+
 
 // XSS対策: HTML特殊文字をエスケープする関数
 function esc(str) {
@@ -250,9 +261,14 @@ function render() {
   const nextSlot = upcomingBooked[0] || null;
 
   // 統計
-  document.getElementById('stat-total').textContent = allBooked.length;
-  document.getElementById('stat-done').textContent = pastBooked.length;
-  document.getElementById('stat-remain').textContent = upcomingBooked.length + (currentSlot ? 1 : 0);
+  // 本日の総予約件数 = 完了済み（履歴） + 現在有効な予約（洗車中・待機中・次など全て）
+  const doneCount = todayHistory.length;
+  const totalCount = doneCount + allBooked.length;
+  // 残り予約 = 洗車中を除いた、これから対応する予約数
+  const remainCount = upcomingBooked.length + pastBooked.length;
+  document.getElementById('stat-total').textContent = totalCount;
+  document.getElementById('stat-done').textContent = doneCount;
+  document.getElementById('stat-remain').textContent = remainCount;
 
   // 現在の洗車状況
   const nowCard = document.getElementById('now-card');
@@ -348,6 +364,7 @@ function updateClock() {
 }
 
 let currentWashingStatus = null;
+let todayHistory = [];
 
 async function renderFromGAS() {
   const data = await fetchFromGAS();
@@ -355,6 +372,9 @@ async function renderFromGAS() {
     try { localStorage.setItem('carwash_reservations', JSON.stringify(data)); } catch(e) {}
   }
   currentWashingStatus = await fetchWashingStatus();
+  const allHistory = await fetchHistory();
+  const dk = localDateKey(new Date());
+  todayHistory = allHistory.filter(h => h.date === dk);
   render();
 }
 
