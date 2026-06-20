@@ -437,9 +437,11 @@ function renderWashScreen(){
 
 function startWash(slot){
   const dk=localDateKey(new Date());const res=reservations[dk]&&reservations[dk][slot];if(!res)return;
-  washState='washing';washCurrent={...res,slot};washStartTime=new Date();
+  const startedAt=new Date().toISOString();
+  washState='washing';washCurrent={...res,slot};washStartTime=new Date(startedAt);
   washTimerInterval=setInterval(()=>{const e=Math.floor((new Date()-washStartTime)/1000);document.getElementById('wash-timer').textContent=`経過 ${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;},1000);
   renderWashScreen();
+  gasPost({action:'setWashingStatus',date:dk,slot:slot,startedAt:startedAt});
 }
 function finishWash(){
   if(!washCurrent)return;const dk=localDateKey(new Date());const now=new Date();
