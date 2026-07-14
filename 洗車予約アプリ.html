@@ -465,15 +465,28 @@ function startWash(slot){
   gasPost({action:'setWashingStatus',date:dk,slot:slot,startedAt:startedAt});
 }
 function finishWash(){
-  if(!washCurrent)return;const dk=localDateKey(new Date());const now=new Date();
+  if(!washCurrent)return;const now=new Date();
+  const dk=localDateKey(now);
   const finishedSlot=washCurrent.slot;
-  washHistory.unshift({...washCurrent,date:dk,completedAt:`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`});
-  if(reservations[dk]){
+  const completedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  // dateは必ず現在日付で上書きして履歴に保存（キャンセル→再予約時のデータずれ防止）
+  const histEntry={
+    name:washCurrent.name,
+    dept:washCurrent.dept,
+    plate:washCurrent.plate,
+    type:washCurrent.type,
+    trailerPlate:washCurrent.trailerPlate||'',
+    slot:finishedSlot,
+    date:dk,
+    completedAt:completedAt
+  };
+  washHistory.unshift(histEntry);
+  if(reservations[dk]&&reservations[dk][finishedSlot]){
     gasPost({action:'deleteReservation',date:dk,slot:finishedSlot});
     delete reservations[dk][finishedSlot];
     saveToStorage();
   }
-  if(washHistory[0]) gasPost({action:'saveHistory',...washHistory[0]});
+  gasPost({action:'saveHistory',...histEntry});
   gasPost({action:'clearWashingStatus',date:dk,slot:finishedSlot});
   clearInterval(washTimerInterval);washState='idle';washCurrent=null;washStartTime=null;
   renderWashScreen();renderSlots();renderHistorySummary();
@@ -545,13 +558,25 @@ function cancelReservation(){if(!cancelTarget)return;const _ct=cancelTarget;
 function markDoneFromModal(){
   if(!cancelTarget)return;const{slot,res,dk}=cancelTarget;const now=new Date();
   const completedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const histEntry={...res,date:dk,slot,completedAt};
+  const histEntry={
+    name:res.name,
+    dept:res.dept,
+    plate:res.plate,
+    type:res.type,
+    trailerPlate:res.trailerPlate||'',
+    slot:slot,
+    date:dk,
+    completedAt:completedAt
+  };
   washHistory.unshift(histEntry);
-  delete reservations[dk][slot];saveToStorage();closeModal();renderSlots();renderHistorySummary();
+  if(reservations[dk]&&reservations[dk][slot]){
+    delete reservations[dk][slot];
+    saveToStorage();
+  }
+  closeModal();renderSlots();renderHistorySummary();
   gasPost({action:'deleteReservation',date:dk,slot:slot});
   gasPost({action:'saveHistory',...histEntry});
   gasPost({action:'clearWashingStatus',date:dk,slot:slot});
-  // 自分が今まさに洗車中だったのがこの予約なら、担当者画面の状態もリセット
   if(washCurrent && washCurrent.slot===slot){
     clearInterval(washTimerInterval);washState='idle';washCurrent=null;washStartTime=null;
   }
