@@ -719,7 +719,7 @@ function showLoadingOverlay(show) {
 }
 
 function initMaintSlots(){
-  const slots=generateSlots();const we=[...slots,'20:00'];const ss=document.getElementById('maint-start'),se=document.getElementById('maint-end');
+  const slots=generateSlots();const we=[...slots,'21:00'];const ss=document.getElementById('maint-start'),se=document.getElementById('maint-end');
   slots.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;ss.appendChild(o);});
   we.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;se.appendChild(o);});
   se.value='21:00';const ts=localDateKey(new Date());document.getElementById('maint-date').value=ts;document.getElementById('maint-date').min=ts;
