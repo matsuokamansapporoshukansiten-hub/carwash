@@ -662,31 +662,35 @@ async function gasSaveReservation(entry) {
 // GASから全予約を読み込み画面を更新
 async function loadFromGAS() {
   showLoadingOverlay(true);
-  const data = await gasGet('getReservations');
+  // 4つのリクエストを同時並列で取得（速度改善）
+  const [data, mdata, hdata, wdata] = await Promise.all([
+    gasGet('getReservations'),
+    gasGet('getMaintenances'),
+    gasGet('getHistory'),
+    gasGet('getWashingStatus')
+  ]);
   if (data) {
     reservations = data;
     saveToStorage();
     renderSlots();
   }
-  const mdata = await gasGet('getMaintenances');
   if (mdata) {
     maintenances = mdata;
     renderMaintList();
     renderSlots();
   }
-  const hdata = await gasGet('getHistory');
   if (hdata && Array.isArray(hdata)) {
     washHistory = hdata.reverse();
     renderHistorySummary();
   }
-  // 他端末の「洗車中」状態を反映
-  const wdata = await gasGet('getWashingStatus');
+  // 他端末の「洗車中」状態を反映（wdataはPromise.allで取得済み）
+  const wdata2 = wdata;
   const dk = localDateKey(new Date());
-  if (wdata && wdata.date === dk && wdata.slot && reservations[dk] && reservations[dk][wdata.slot]) {
+  if (wdata2 && wdata2.date === dk && wdata2.slot && reservations[dk] && reservations[dk][wdata2.slot]) {
     // GAS側が「洗車中」を示している → 自分の画面も洗車中にする
     washState = 'washing';
-    washCurrent = {...reservations[dk][wdata.slot], slot: wdata.slot};
-    washStartTime = new Date(wdata.startedAt);
+    washCurrent = {...reservations[dk][wdata2.slot], slot: wdata2.slot};
+    washStartTime = new Date(wdata2.startedAt);
     if (washTimerInterval) clearInterval(washTimerInterval);
     washTimerInterval = setInterval(() => {
       const e = Math.floor((new Date() - washStartTime) / 1000);
